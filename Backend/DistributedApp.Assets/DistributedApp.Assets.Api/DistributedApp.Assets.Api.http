@@ -1,0 +1,6 @@
+@DistributedApp.Assets.Api_HostAddress = http://localhost:5283
+
+GET {{DistributedApp.Assets.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

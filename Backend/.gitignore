@@ -1,0 +1,74 @@
+# ==============================================================================
+# SISTEMA OPERATIVO Y GENERAL
+# ==============================================================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+
+# ==============================================================================
+# IDEs (Visual Studio, VS Code, Rider)
+# ==============================================================================
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.cache
+*.ide
+appsettings.json.user
+
+# ==============================================================================
+# .NET CORE / BACKEND (Microservicios)
+# ==============================================================================
+# Compilados y objetos temporales (¡Lo más importante!)
+[Bb]in/
+[Oo]bj/
+
+# Configuración de desarrollo con secretos (No subir nunca)
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+# Archivos generados por tests o cobertura
+TestResults/
+coverage/
+*.cobertura.xml
+
+# Archivos de la base de datos local (si usas LocalDB)
+*.mdf
+*.ldf
+
+# ==============================================================================
+# FRONTEND (React, Vite, Node)
+# ==============================================================================
+# Dependencias (¡NUNCA SUBIR ESTO!)
+node_modules/
+jspm_packages/
+
+# Builds de producción
+dist/
+build/
+out/
+
+# Variables de entorno (Secretos)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs de npm/yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Directorios de cache
+.eslintcache
+.npm
+.cache/
+
+# Testing
+coverage/

@@ -1,0 +1,6 @@
+@DistributedApp.Maintenance.Api2_HostAddress = http://localhost:5090
+
+GET {{DistributedApp.Maintenance.Api2_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
