@@ -22,21 +22,21 @@ namespace DistributedApp.Auth.Infrastructure.Repositories
         public async Task<Usuario?> GetByUsernameAsync(string nombreUsuario)
         {
             using var connection = _connectionFactory.CreateConnection();
-            var sql = "SELECT * FROM Seguridad.Usuarios WHERE NombreUsuario = @NombreUsuario AND Activo = 1";
+            var sql = "SELECT * FROM Usuarios WHERE NombreUsuario = @NombreUsuario AND Activo = 1";
             return await connection.QuerySingleOrDefaultAsync<Usuario>(sql, new { NombreUsuario = nombreUsuario });
         }
 
         public async Task<IEnumerable<Usuario>> GetAllAsync()
         {
             using var connection = _connectionFactory.CreateConnection();
-            var sql = "SELECT * FROM Seguridad.Usuarios WHERE Activo = 1";
+            var sql = "SELECT * FROM Usuarios WHERE Activo = 1";
             return await connection.QueryAsync<Usuario>(sql);
         }
 
         public async Task<Usuario?> GetByIdAsync(int id)
         {
             using var connection = _connectionFactory.CreateConnection();
-            var sql = "SELECT * FROM Seguridad.Usuarios WHERE IdUsuario = @Id";
+            var sql = "SELECT * FROM Usuarios WHERE IdUsuario = @Id";
             return await connection.QuerySingleOrDefaultAsync<Usuario>(sql, new { Id = id });
         }
 
@@ -44,7 +44,7 @@ namespace DistributedApp.Auth.Infrastructure.Repositories
         {
             using var connection = _connectionFactory.CreateConnection();
             var sql = @"
-                INSERT INTO Seguridad.Usuarios (NombreUsuario, Contrasena, NombreCompleto, Correo, Rol, Activo, FechaCreacion)
+                INSERT INTO Usuarios (NombreUsuario, Contrasena, NombreCompleto, Correo, Rol, Activo, FechaCreacion)
                 VALUES (@NombreUsuario, @Contrasena, @NombreCompleto, @Correo, @Rol, 1, GETDATE());
                 
                 -- Recuperar el ID generado automáticamente
@@ -57,7 +57,7 @@ namespace DistributedApp.Auth.Infrastructure.Repositories
         {
             using var connection = _connectionFactory.CreateConnection();
             var sql = @"
-                UPDATE Seguridad.Usuarios
+                UPDATE Usuarios
                 SET NombreUsuario = @NombreUsuario,
                     Contrasena = @Contrasena,
                     NombreCompleto = @NombreCompleto,
@@ -73,7 +73,7 @@ namespace DistributedApp.Auth.Infrastructure.Repositories
         {
             using var connection = _connectionFactory.CreateConnection();
             // Baja Lógica: No borramos el registro, solo lo desactivamos
-            var sql = "UPDATE Seguridad.Usuarios SET Activo = 0 WHERE IdUsuario = @Id";
+            var sql = "UPDATE Usuarios SET Activo = 0 WHERE IdUsuario = @Id";
 
             var rowsAffected = await connection.ExecuteAsync(sql, new { Id = id });
             return rowsAffected > 0;

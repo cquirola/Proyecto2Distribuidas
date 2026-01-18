@@ -1,0 +1,55 @@
+name: Full Stack Distributed CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  # --- JOB 1: BACKEND ---
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+        
+    - name: Restore dependencies
+      run: dotnet restore ./Taller_REST_API/REST_GestionUsuarios.sln
+      
+    - name: Build API
+      run: dotnet build ./Taller_REST_API/REST_GestionUsuarios.sln --no-restore --configuration Release
+      
+    - name: Run Unit Tests
+      run: dotnet test ./Taller_REST_API/REST_GestionUsuarios.sln --no-build --verbosity normal
+      
+    - name: Docker Build (Backend)
+      # Construye la imagen usando el Dockerfile que ya tienes en el backend
+      run: docker build . -f ./Taller_REST_API/Dockerfile -t mi-app-backend:latest
+
+  # --- JOB 2: FRONTEND ---
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Install Dependencies
+      working-directory: ./use-managment.ui
+      run: npm ci --legacy-peer-deps
+
+    - name: Build Angular App
+      working-directory: ./use-managment.ui
+      run: npm run build -- --configuration production
+
+    - name: Docker Build (Frontend)
+      # Construye la imagen usando el Dockerfile que crearemos en el paso 3
+      run: docker build . -f ./use-managment.ui/Dockerfile -t mi-app-frontend:latest
