@@ -1,19 +1,39 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import LoginPage from "../features/auth/pages/LoginPage";
 
-const AppRoutes = () => {
-  return (
+import { Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "../features/auth/context/AuthContext.jsx";
+import ProtectedRoute from "./ProtectedRoutes.jsx";
+
+import LoginPage from "../features/auth/pages/LoginPage.jsx";
+import DashboardPage from "../features/dashboard/pages/dashboardpages.jsx";
+
+// Placeholders
+const UsuariosPage = () => <div className="p-8">Usuarios</div>;
+const MantenimientoPage = () => <div className="p-8">Mantenimiento</div>;
+const ActivosPage = () => <div className="p-8">Activos</div>;
+const ContabilidadPage = () => <div className="p-8">Contabilidad</div>;
+
+const AppRoutes = () => (
+  <AuthProvider>
     <Routes>
-      {/* Ruta por defecto: Redirigir al Login */}
       <Route path="/" element={<Navigate to="/login" replace />} />
-      
-      {/* Ruta del Login */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Cualquier ruta desconocida te manda al Login */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Rutas protegidas para cualquier usuario logueado */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/mantenimiento" element={<MantenimientoPage />} />
+        <Route path="/activos" element={<ActivosPage />} />
+      </Route>
+
+      {/* Solo admin */}
+      <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+        <Route path="/usuarios" element={<UsuariosPage />} />
+        <Route path="/contabilidad" element={<ContabilidadPage />} />
+      </Route>
+
+      <Route path="*" element={<div className="p-8">404</div>} />
     </Routes>
-  );
-};
+  </AuthProvider>
+);
 
 export default AppRoutes;
