@@ -17,4 +17,8 @@
 		<ProjectReference Include="..\DistributedApp.Auth.Domain\DistributedApp.Auth.Domain.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="ScripsSQL\" />
+	</ItemGroup>
+
 </Project>
