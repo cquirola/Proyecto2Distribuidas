@@ -28,7 +28,12 @@ const AppRoutes = () => (
       {/* Solo admin */}
       <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
         <Route path="/usuarios" element={<UsuariosPage />} />
+      </Route>
+
+      {/* Admin y Contador */}
+      <Route element={<ProtectedRoute allowedRoles={["admin", "contador"]} />}>
         <Route path="/contabilidad" element={<ContabilidadPage />} />
+        <Route path="/activos" element={<ContabilidadPage />} />
       </Route>
 
       <Route path="*" element={<div className="p-8">404</div>} />
@@ -36,4 +41,7 @@ const AppRoutes = () => (
   </AuthProvider>
 );
 
+
 export default AppRoutes;
+
+
