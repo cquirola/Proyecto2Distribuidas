@@ -5,9 +5,11 @@ import ProtectedRoute from "./ProtectedRoutes.jsx";
 
 import LoginPage from "../features/auth/pages/LoginPage.jsx";
 import DashboardPage from "../features/dashboard/pages/dashboardpages.jsx";
+import UsuariosPage from "../features/usuarios/pages/UsuarioPage.jsx";
+
 
 // Placeholders
-const UsuariosPage = () => <div className="p-8">Usuarios</div>;
+//const UsuariosPage = () => <div className="p-8">Usuarios</div>;
 const MantenimientoPage = () => <div className="p-8">Mantenimiento</div>;
 const ActivosPage = () => <div className="p-8">Activos</div>;
 const ContabilidadPage = () => <div className="p-8">Contabilidad</div>;
@@ -33,7 +35,7 @@ const AppRoutes = () => (
       {/* Admin y Contador */}
       <Route element={<ProtectedRoute allowedRoles={["admin", "contador"]} />}>
         <Route path="/contabilidad" element={<ContabilidadPage />} />
-        <Route path="/activos" element={<ContabilidadPage />} />
+        <Route path="/activos" element={<ActivosPage />} />
       </Route>
 
       <Route path="*" element={<div className="p-8">404</div>} />
