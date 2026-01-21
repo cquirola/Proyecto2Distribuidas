@@ -2,6 +2,7 @@
 using DistributedApp.Auth.Application.Interface;
 using DistributedApp.Auth.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 
 namespace DistributedApp.Auth.Api.Controllers
 {
@@ -9,149 +10,114 @@ namespace DistributedApp.Auth.Api.Controllers
     [Route("api/[controller]")]
     public class UsuariosController : ControllerBase
     {
-        private readonly IUsuarioRepository _usuarioRepository;
+        // Inyectamos EL SERVICIO (Lógica de Negocio), no el repositorio
+        private readonly IUsuarioService _usuarioService;
 
-        public UsuariosController(IUsuarioRepository usuarioRepository)
+        public UsuariosController(IUsuarioService usuarioService)
         {
-            _usuarioRepository = usuarioRepository;
-        }
-
-        // GET: api/usuarios
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var usuarios = await _usuarioRepository.GetAllAsync();
-            return Ok(usuarios);
+            _usuarioService = usuarioService;
         }
 
         // POST: api/usuarios/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            var usuario = await _usuarioRepository.GetByUsernameAsync(request.Username);
+            var respuesta = await _usuarioService.AuthenticateAsync(request);
+
+            if (respuesta == null)
+            {
+                return Unauthorized(new { Message = "Usuario o contraseña incorrectos" });
+            }
+
+            // Retorna el JSON con: UsuarioId, Nombre, Rol y TOKEN
+            return Ok(respuesta);
+        }
+
+        // GET: api/usuarios
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var usuarios = await _usuarioService.GetAllAsync();
+            return Ok(usuarios);
+        }
+
+        // GET: api/usuarios/{id}
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var usuario = await _usuarioService.GetByIdAsync(id);
 
             if (usuario == null)
             {
-                return Unauthorized(new { Message = "Usuario no encontrado" });
+                return NotFound(new { Message = "Usuario no encontrado" });
             }
 
-            if (usuario.Contrasena != request.Password)
-            {
-                return Unauthorized(new { Message = "Contraseña incorrecta" });
-            }
-
-            return Ok(new
-            {
-                Message = "Login Exitoso",
-                UsuarioId = usuario.IdUsuario,
-                Nombre = usuario.NombreCompleto,
-                Rol = usuario.Rol
-            });
+            return Ok(usuario);
         }
 
         // POST: api/usuarios
-        // Crea un nuevo usuario
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Usuario usuario)
         {
             try
             {
-                if (string.IsNullOrEmpty(usuario.Rol)) usuario.Rol = "USER";
-                usuario.Activo = true;
-                
-                // Si la fecha viene nula, ponemos la actual (aunque la BD lo haga, es bueno asegurarlo)
-                if (usuario.FechaCreacion == default) usuario.FechaCreacion = DateTime.Now;
-
-                var nuevoId = await _usuarioRepository.CreateAsync(usuario);
-
-                return CreatedAtAction(nameof(GetAll), new { id = nuevoId }, new { Id = nuevoId, Message = "Usuario Creado" });
+                var nuevoUsuario = await _usuarioService.CreateAsync(usuario);
+                // Retorna 201 Created y la ubicación del nuevo recurso
+                return CreatedAtAction(nameof(GetById), new { id = nuevoUsuario.IdUsuario }, new { Message = "Usuario Creado", Id = nuevoUsuario.IdUsuario });
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return BadRequest(new { Error = ex.Message });
             }
         }
 
-        // --- NUEVOS ENDPOINTS AGREGADOS ---
-
         // PUT: api/usuarios/{id}
-        // Actualiza un usuario existente
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] Usuario usuario)
         {
             try
             {
-                if (id != usuario.IdUsuario)
-                {
-                    return BadRequest(new { Message = "El ID de la URL no coincide con el cuerpo de la solicitud" });
-                }
+                var result = await _usuarioService.UpdateAsync(id, usuario);
 
-                // Llamamos al repositorio para actualizar
-                // Nota: Tu repositorio debe manejar la lógica de si la contraseña viene nula o vacía para no sobrescribirla
-                var resultado = await _usuarioRepository.UpdateAsync(usuario);
-
-                if (!resultado)
+                if (!result)
                 {
-                    return NotFound(new { Message = "Usuario no encontrado o no se pudo actualizar" });
+                    return NotFound(new { Message = "Usuario no encontrado o IDs no coinciden" });
                 }
 
                 return Ok(new { Message = "Usuario actualizado correctamente" });
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return BadRequest(new { Error = ex.Message });
             }
         }
 
         // DELETE: api/usuarios/{id}
-        // Elimina un usuario por ID
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            try
-            {
-                var resultado = await _usuarioRepository.DeleteAsync(id);
+            var result = await _usuarioService.DeleteAsync(id);
 
-                if (!resultado)
-                {
-                    return NotFound(new { Message = "Usuario no encontrado" });
-                }
-
-                return Ok(new { Message = "Usuario eliminado correctamente" });
-            }
-            catch (Exception ex)
+            if (!result)
             {
-                return BadRequest(new { Error = ex.Message });
+                return NotFound(new { Message = "Usuario no encontrado" });
             }
+
+            return Ok(new { Message = "Usuario eliminado correctamente" });
         }
 
         // PATCH: api/usuarios/{id}/estado
-        // Actualiza solo el estado (Activo/Inactivo)
         [HttpPatch("{id}/estado")]
         public async Task<IActionResult> ToggleStatus(int id, [FromBody] EstadoRequest request)
         {
-            try
-            {
-                // Asumimos que tienes un método específico para esto, o usamos UpdateAsync parcial
-                var resultado = await _usuarioRepository.UpdateStatusAsync(id, request.Activo);
+            var result = await _usuarioService.UpdateStatusAsync(id, request.Activo);
 
-                if (!resultado)
-                {
-                    return NotFound(new { Message = "Usuario no encontrado" });
-                }
-
-                return Ok(new { Message = "Estado actualizado correctamente", NuevoEstado = request.Activo });
-            }
-            catch (Exception ex)
+            if (!result)
             {
-                return BadRequest(new { Error = ex.Message });
+                return NotFound(new { Message = "Usuario no encontrado" });
             }
+
+            return Ok(new { Message = "Estado actualizado correctamente", NuevoEstado = request.Activo });
         }
-    }
-
-    // DTO auxiliar para el cambio de estado (puedes ponerlo en otro archivo si prefieres)
-    public class EstadoRequest
-    {
-        public bool Activo { get; set; }
-    }
+    }    
 }

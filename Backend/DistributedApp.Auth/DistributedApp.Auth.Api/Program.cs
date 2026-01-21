@@ -1,5 +1,6 @@
 using DistributedApp.Auth.Application.Interface;
 using DistributedApp.Auth.Application.Interfaces;
+using DistributedApp.Auth.Application.Services;
 using DistributedApp.Auth.Infrastructure.Data;
 using DistributedApp.Auth.Infrastructure.Repositories;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,7 +25,7 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddScoped<ISqlConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
-
+builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
 
 builder.Services.AddEndpointsApiExplorer();
