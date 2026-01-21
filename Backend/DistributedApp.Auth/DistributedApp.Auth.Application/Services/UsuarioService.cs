@@ -1,6 +1,7 @@
-﻿using DistributedApp.Auth.Application.Interface;
+﻿using DistributedApp.Auth.Application.DTOs;
+using DistributedApp.Auth.Application.Interface;
 using DistributedApp.Auth.Domain.Entities;
-using DistributedApp.Auth.Application.DTOs;
+using Google.Apis.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
@@ -74,11 +75,76 @@ namespace DistributedApp.Auth.Application.Services
             return await _usuarioRepository.UpdateAsync(usuario);
         }
 
+        public async Task<AuthResponseDto> AuthenticateGoogleAsync(string googleCredential)
+        {
+            try
+            {
+                // 1. Validar el token con Google
+                var settings = new GoogleJsonWebSignature.ValidationSettings();
+                var payload = await GoogleJsonWebSignature.ValidateAsync(googleCredential, settings);
+
+                // payload.Email -> Correo verificado de Google
+                // payload.Name  -> Nombre completo de Google
+
+                // 2. Buscar usuario en nuestra BD usando el CORREO (que es único en Google)
+                var usuario = await _usuarioRepository.GetByCorreoAsync(payload.Email);
+
+                // Si no existe el método GetByCorreoAsync, podrías usar GetByUsernameAsync(payload.Email) 
+                // SOLO SI asumes que NombreUsuario siempre es igual al Correo. 
+                // Pero lo ideal es usar el campo Correo.
+
+                if (usuario == null)
+                {
+                    // 3. Auto-Registro: Creamos el usuario si es nuevo
+                    usuario = new Usuario
+                    {
+                        // Mapeo a TUS propiedades exactas:
+                        NombreCompleto = payload.Name,
+                        Correo = payload.Email,
+
+                        // Como NombreUsuario es obligatorio, usamos el email por defecto
+                        NombreUsuario = payload.Email,
+
+                        Contrasena = "", // Se queda vacía porque entra por OAuth
+                        Rol = "USER",    // Rol por defecto
+                        Activo = true,
+                        FechaCreacion = DateTime.Now
+                    };
+
+                    // Guardamos en BD
+                    var nuevoId = await _usuarioRepository.CreateAsync(usuario);
+                    usuario.IdUsuario = nuevoId;
+                }
+                else
+                {
+                    // Opcional: Si el usuario existe pero estaba inactivo, rebotarlo
+                    if (!usuario.Activo) return null;
+                }
+
+                // 4. Generar NUESTRO JWT (Reutilizamos tu lógica existente)
+                // Nota: Asegúrate que tu método GenerarTokenJwt use usuario.IdUsuario y usuario.NombreUsuario
+                var tokenString = GenerarTokenJwt(usuario);
+
+                return new AuthResponseDto
+                {
+                    UsuarioId = usuario.IdUsuario,
+                    Nombre = usuario.NombreCompleto,
+                    Rol = usuario.Rol,
+                    Token = tokenString
+                };
+            }
+            catch (InvalidJwtException)
+            {
+                // Token inválido o expirado
+                return null!;
+            }
+        }
+
         // --- MÉTODO PRIVADO PARA GENERAR EL TOKEN ---
         private string GenerarTokenJwt(Usuario usuario)
         {
             // Clave secreta desde appsettings
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             // Claims (Datos que viajan dentro del token)

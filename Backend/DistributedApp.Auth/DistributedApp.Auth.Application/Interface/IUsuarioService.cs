@@ -16,8 +16,6 @@ namespace DistributedApp.Auth.Application.Interface
         Task<bool> UpdateAsync(int id, Usuario usuario);
         Task<bool> DeleteAsync(int id);
         Task<bool> UpdateStatusAsync(int id, bool activo);
+        Task<AuthResponseDto> AuthenticateGoogleAsync(string googleCredential);
     }
-
-    // DTO de respuesta para el Login (puedes ponerlo en su propio archivo)
-  
 }

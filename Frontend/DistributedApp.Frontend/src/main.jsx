@@ -1,10 +1,13 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
-import './index.css' // <--- ¡VITAL! Sin esto no carga Tailwind
+import './index.css' 
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <GoogleOAuthProvider clientId="220912218741-c0t2luqp91uhshf0j9bc8ojblu7f9hfh.apps.googleusercontent.com">
+      <App />
+    </GoogleOAuthProvider>
   </React.StrictMode>,
 )

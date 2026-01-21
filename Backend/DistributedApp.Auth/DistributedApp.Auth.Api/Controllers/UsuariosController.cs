@@ -119,5 +119,27 @@ namespace DistributedApp.Auth.Api.Controllers
 
             return Ok(new { Message = "Estado actualizado correctamente", NuevoEstado = request.Activo });
         }
+
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            // 1. Validación Básica: ¿Me enviaron algo?
+            if (request == null || string.IsNullOrEmpty(request.Credential))
+            {
+                return BadRequest(new { Message = "El token de Google es obligatorio." });
+            }
+
+            // 2. Llamada al Servicio (Aquí ocurre la validación criptográfica y lógica de negocio)
+            var respuesta = await _usuarioService.AuthenticateGoogleAsync(request.Credential);
+
+            // 3. Respuesta
+            if (respuesta == null)
+            {
+                // Si es null, significa que el token era falso, expiró, o el usuario está inactivo.
+                return Unauthorized(new { Message = "Autenticación fallida. Token inválido o usuario bloqueado." });
+            }
+
+            return Ok(respuesta);
+        }
     }    
 }

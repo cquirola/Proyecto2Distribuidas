@@ -13,5 +13,6 @@ namespace DistributedApp.Auth.Application.Interface
         Task<bool> UpdateAsync(Usuario usuario);
         Task<bool> DeleteAsync(int id);
         Task<bool> UpdateStatusAsync(int id, bool activo);
+        Task<Usuario?> GetByCorreoAsync(string correo);
     }
 }
