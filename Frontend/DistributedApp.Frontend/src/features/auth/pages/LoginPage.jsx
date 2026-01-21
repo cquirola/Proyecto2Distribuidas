@@ -114,24 +114,34 @@ const LoginPage = () => {
 
     try {
       const response = await apiAuth.post("/usuarios/login", form);
+      
+      console.log("Respuesta del Backend:", response.data);
 
-      // Ajusta esto al shape real de tu API:
+      // --- CORRECCIÓN AQUÍ ---
+      // Mapeamos explícitamente las claves de tu API: 'nombre' y 'rol'
       const session = {
         isLoggedIn: true,
-        name: response.data?.name ?? form.username,
-        username: response.data?.username ?? form.username,
-        role: (response.data?.role ?? "user").toLowerCase(),
+        
+        // La API devuelve "nombre": "Maicol Jimenez"
+        name: response.data.nombre || form.username, 
+        
+        // La API no devuelve el usuario, así que mantenemos el que escribió en el input
+        username: form.username, 
+        
+        // La API devuelve "rol": "admin". Usamos ?. para evitar error si viene null
+        role: response.data.rol?.toLowerCase() || "user", 
       };
 
       localStorage.setItem("user", JSON.stringify(session));
       if (auth?.login) auth.login(session);
 
-      console.log("Login Exitoso:", response.data);
+      console.log("Login Real Exitoso. Sesión mapeada:", session);
       navigate("/dashboard", { replace: true });
+      
     } catch (err) {
       console.error(err);
       if (err?.code === "ERR_NETWORK") {
-        setError("No se pudo conectar con el servidor. Revisa el Backend.");
+        setError("No se pudo conectar con el servidor.");
       } else {
         setError("Usuario o contraseña incorrectos.");
       }
@@ -161,7 +171,7 @@ const LoginPage = () => {
         {/* ------------------------------------------- */}
 
         {/* IMPORTANTE: mientras no tengas backend, usa handleSubmit_Extra */}
-        <form onSubmit={handleSubmit_Extra} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Input Usuario */}
           <div className="group">
             <div className="relative">
