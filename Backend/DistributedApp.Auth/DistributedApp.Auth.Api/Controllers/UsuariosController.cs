@@ -17,7 +17,6 @@ namespace DistributedApp.Auth.Api.Controllers
         }
 
         // GET: api/usuarios
-        // Obtiene todos los usuarios activos
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -26,11 +25,9 @@ namespace DistributedApp.Auth.Api.Controllers
         }
 
         // POST: api/usuarios/login
-        // Valida credenciales (Paso previo a generar el Token OAuth)
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            // 1. Buscar usuario por nombre
             var usuario = await _usuarioRepository.GetByUsernameAsync(request.Username);
 
             if (usuario == null)
@@ -38,14 +35,11 @@ namespace DistributedApp.Auth.Api.Controllers
                 return Unauthorized(new { Message = "Usuario no encontrado" });
             }
 
-            // 2. Validar contraseña (Texto plano según requerimiento actual)
             if (usuario.Contrasena != request.Password)
             {
                 return Unauthorized(new { Message = "Contraseña incorrecta" });
             }
 
-            // 3. Si todo está bien, retornamos el usuario (sin la contraseña por seguridad)
-            // NOTA: Aquí es donde más adelante generaremos el JWT Token.
             return Ok(new
             {
                 Message = "Login Exitoso",
@@ -56,15 +50,17 @@ namespace DistributedApp.Auth.Api.Controllers
         }
 
         // POST: api/usuarios
-        // Crea un nuevo usuario (Para probar el Insert con Dapper)
+        // Crea un nuevo usuario
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Usuario usuario)
         {
             try
             {
-                // Forzamos valores por defecto si vienen nulos
                 if (string.IsNullOrEmpty(usuario.Rol)) usuario.Rol = "USER";
                 usuario.Activo = true;
+                
+                // Si la fecha viene nula, ponemos la actual (aunque la BD lo haga, es bueno asegurarlo)
+                if (usuario.FechaCreacion == default) usuario.FechaCreacion = DateTime.Now;
 
                 var nuevoId = await _usuarioRepository.CreateAsync(usuario);
 
@@ -75,5 +71,87 @@ namespace DistributedApp.Auth.Api.Controllers
                 return BadRequest(new { Error = ex.Message });
             }
         }
+
+        // --- NUEVOS ENDPOINTS AGREGADOS ---
+
+        // PUT: api/usuarios/{id}
+        // Actualiza un usuario existente
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] Usuario usuario)
+        {
+            try
+            {
+                if (id != usuario.IdUsuario)
+                {
+                    return BadRequest(new { Message = "El ID de la URL no coincide con el cuerpo de la solicitud" });
+                }
+
+                // Llamamos al repositorio para actualizar
+                // Nota: Tu repositorio debe manejar la lógica de si la contraseña viene nula o vacía para no sobrescribirla
+                var resultado = await _usuarioRepository.UpdateAsync(usuario);
+
+                if (!resultado)
+                {
+                    return NotFound(new { Message = "Usuario no encontrado o no se pudo actualizar" });
+                }
+
+                return Ok(new { Message = "Usuario actualizado correctamente" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+        // DELETE: api/usuarios/{id}
+        // Elimina un usuario por ID
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                var resultado = await _usuarioRepository.DeleteAsync(id);
+
+                if (!resultado)
+                {
+                    return NotFound(new { Message = "Usuario no encontrado" });
+                }
+
+                return Ok(new { Message = "Usuario eliminado correctamente" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+        // PATCH: api/usuarios/{id}/estado
+        // Actualiza solo el estado (Activo/Inactivo)
+        [HttpPatch("{id}/estado")]
+        public async Task<IActionResult> ToggleStatus(int id, [FromBody] EstadoRequest request)
+        {
+            try
+            {
+                // Asumimos que tienes un método específico para esto, o usamos UpdateAsync parcial
+                var resultado = await _usuarioRepository.UpdateStatusAsync(id, request.Activo);
+
+                if (!resultado)
+                {
+                    return NotFound(new { Message = "Usuario no encontrado" });
+                }
+
+                return Ok(new { Message = "Estado actualizado correctamente", NuevoEstado = request.Activo });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+    }
+
+    // DTO auxiliar para el cambio de estado (puedes ponerlo en otro archivo si prefieres)
+    public class EstadoRequest
+    {
+        public bool Activo { get; set; }
     }
 }

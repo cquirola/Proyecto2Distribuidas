@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/context/AuthContext";
 import {
@@ -8,11 +8,15 @@ import {
   Boxes,
   Calculator,
   LogOut,
+  Bell,
+  Search,
+  Calendar,
+  Sparkles,
+  ArrowUpRight,
 } from "lucide-react";
 
 // --- UTILIDADES ---
 
-// Iniciales del avatar
 const getInitials = (name = "") => {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
@@ -21,72 +25,81 @@ const getInitials = (name = "") => {
   return (first + last).toUpperCase();
 };
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Buenos días";
+  if (hour < 18) return "Buenas tardes";
+  return "Buenas noches";
+};
+
 // --- COMPONENTES INTERNOS ---
 
 const RoleBadge = ({ role }) => {
-  // Normalizamos a minúsculas
   const r = (role || "").toLowerCase();
-
   let styles = "";
   let label = "";
+  let dotColor = "";
 
   switch (r) {
     case "admin":
-      styles = "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
-      label = "Admin";
+      styles = "bg-violet-100 text-violet-700 border-violet-200";
+      dotColor = "bg-violet-500";
+      label = "Administrador";
       break;
     case "contador":
-      // Color Esmeralda (verde financiero) para contadores
-      styles = "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+      styles = "bg-emerald-100 text-emerald-700 border-emerald-200";
+      dotColor = "bg-emerald-500";
       label = "Contador";
       break;
     default:
-      // Gris para usuarios normales
-      styles = "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
+      styles = "bg-slate-100 text-slate-600 border-slate-200";
+      dotColor = "bg-slate-400";
       label = "Usuario";
       break;
   }
 
   return (
     <span
-      className={`ml-3 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${styles}`}
+      className={`ml-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border ${styles} transition-colors`}
     >
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse`} />
       {label}
     </span>
   );
 };
 
+// Tarjeta Bento Genérica (Para Módulos)
 const BentoCard = ({ title, desc, icon: Icon, onClick, disabled }) => {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`group relative w-full text-left rounded-3xl p-6 md:p-7 bg-white ring-1 ring-black/5 shadow hover:shadow-md transition-all duration-200 ${
-        disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+      className={`group relative w-full text-left h-full flex flex-col justify-between rounded-[2rem] p-6 transition-all duration-300 ${
+        disabled
+          ? "bg-slate-50 opacity-60 cursor-not-allowed border border-slate-100"
+          : "bg-white hover:shadow-xl hover:shadow-violet-500/5 hover:-translate-y-1 border border-transparent hover:border-violet-100 cursor-pointer"
       }`}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center ring-1 ring-blue-100">
-              <Icon size={22} strokeWidth={1.6} />
-            </div>
-            <h3 className="text-base md:text-lg font-semibold text-slate-900">
-              {title}
-            </h3>
+      <div>
+        <div className="flex items-start justify-between mb-4">
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+              disabled
+                ? "bg-slate-100 text-slate-400"
+                : "bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white"
+            }`}
+          >
+            <Icon size={24} strokeWidth={1.5} />
           </div>
-          <p className="mt-3 text-sm text-slate-500 leading-relaxed">{desc}</p>
+          {!disabled && (
+            <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 text-violet-400 transform translate-x-2 group-hover:translate-x-0">
+              <ArrowUpRight size={20} />
+            </div>
+          )}
         </div>
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-600">
-          <Command size={18} strokeWidth={1.6} />
-        </div>
+        <h3 className="text-lg font-bold text-slate-900 mb-1">{title}</h3>
+        <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
       </div>
-
-      {!disabled && (
-        <div className="mt-5 text-sm font-semibold text-[#007AFF] group-hover:underline underline-offset-4">
-          Entrar
-        </div>
-      )}
     </button>
   );
 };
@@ -96,15 +109,20 @@ const BentoCard = ({ title, desc, icon: Icon, onClick, disabled }) => {
 const DashboardPage = () => {
   const { user, role, logout } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("inicio"); // "inicio" | "modulos"
+  const [tab, setTab] = useState("inicio");
+  const [currentDate, setCurrentDate] = useState("");
 
-  // Definición de Módulos + Permisos
+  useEffect(() => {
+    const options = { weekday: "long", day: "numeric", month: "long" };
+    setCurrentDate(new Date().toLocaleDateString("es-ES", options));
+  }, []);
+
   const modules = useMemo(
     () => [
       {
         key: "usuarios",
         title: "Gestión de Usuarios",
-        desc: "Administra cuentas, roles y permisos.",
+        desc: "Control de acceso, roles y seguridad.",
         icon: Users,
         to: "/usuarios",
         allowed: (r) => r === "admin",
@@ -112,15 +130,15 @@ const DashboardPage = () => {
       {
         key: "mantenimiento",
         title: "Mantenimiento",
-        desc: "Órdenes, planes preventivos y bitácoras.",
+        desc: "Órdenes de trabajo y planes preventivos.",
         icon: Wrench,
         to: "/mantenimiento",
         allowed: (r) => r === "admin" || r === "user",
       },
       {
         key: "activos",
-        title: "Activos",
-        desc: "Inventario, estados y ciclo de vida.",
+        title: "Activos Fijos",
+        desc: "Inventario, depreciación y trazabilidad.",
         icon: Boxes,
         to: "/activos",
         allowed: (r) => r === "admin" || r === "user" || r === "contador",
@@ -128,7 +146,7 @@ const DashboardPage = () => {
       {
         key: "contabilidad",
         title: "Contabilidad",
-        desc: "Costos, presupuestos y reportes.",
+        desc: "Balance general, costos y reportes.",
         icon: Calculator,
         to: "/contabilidad",
         allowed: (r) => r === "admin" || r === "contador",
@@ -138,8 +156,6 @@ const DashboardPage = () => {
   );
 
   const normalizedRole = (role || "user").toLowerCase();
-
-  // Filtramos solo los módulos permitidos para el usuario actual
   const visible = modules.filter((m) => m.allowed(normalizedRole));
 
   const handleLogout = () => {
@@ -150,128 +166,154 @@ const DashboardPage = () => {
   const initials = getInitials(user?.name || user?.username || "Usuario");
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7] p-4 sm:p-6 md:p-10 text-slate-900">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-blue-50 text-blue-700 ring-1 ring-blue-200 flex items-center justify-center text-lg font-bold">
-              {initials}
+    <div className="min-h-screen bg-[#F8F9FC] font-sans selection:bg-violet-200">
+      {/* Background decoration */}
+      <div className="fixed top-0 left-0 w-full h-96 bg-gradient-to-b from-violet-50/50 to-transparent pointer-events-none" />
+
+      <div className="relative mx-auto max-w-7xl p-4 sm:p-6 lg:p-10">
+        {/* --- HEADER --- */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-5">
+            <div className="relative group cursor-pointer">
+              <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-violet-600 to-indigo-600 text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-violet-200 transition-transform group-hover:scale-105">
+                {initials}
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-[#F8F9FC] rounded-full" />
             </div>
             <div>
-              <div className="flex items-center">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-                  ¡Hola, {user?.name || user?.username || "Usuario"}!
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+                  {getGreeting()}, {user?.name?.split(" ")[0] || "Usuario"}
                 </h1>
-                {/* Aquí usamos el badge actualizado */}
                 <RoleBadge role={role} />
               </div>
-              <p className="text-sm text-slate-500 mt-1">
-                Bienvenido al sistema distribuido.
+              <p className="text-slate-500 flex items-center gap-2 text-sm font-medium">
+                <Calendar size={14} className="text-violet-500" />
+                <span className="capitalize">{currentDate}</span>
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 bg-white ring-1 ring-black/5 shadow hover:shadow-md text-slate-700 hover:text-slate-900 transition-all"
-          >
-            <LogOut size={18} />
-            <span className="text-sm font-semibold">Cerrar sesión</span>
-          </button>
-        </div>
-
-        {/* Hero */}
-        <div className="mt-8 rounded-[2rem] bg-white p-6 sm:p-8 ring-1 ring-black/5 shadow">
-          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100 flex items-center justify-center mb-4">
-            <Command size={26} strokeWidth={1.6} />
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight">Panel de Inicio</h2>
-          <p className="mt-2 text-slate-500">
-            Todo lo que necesitas, en un solo lugar. Navega por los módulos y continúa donde lo dejaste.
-          </p>
-
-          {/* Tabs */}
-          <div className="mt-6 flex items-center gap-2">
-            <button
-              onClick={() => setTab("inicio")}
-              className={`px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all ${
-                tab === "inicio"
-                  ? "bg-[#007AFF] text-white"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              Inicio
+          <div className="flex items-center gap-3">
+            <button className="p-3 rounded-2xl bg-white text-slate-400 hover:text-violet-600 hover:bg-violet-50 hover:shadow-md transition-all">
+              <Bell size={20} />
             </button>
             <button
-              onClick={() => setTab("modulos")}
-              className={`px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all ${
-                tab === "modulos"
-                  ? "bg-[#007AFF] text-white"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-slate-600 font-semibold hover:bg-red-50 hover:text-red-600 hover:shadow-md transition-all border border-transparent hover:border-red-100"
             >
-              Módulos
+              <LogOut size={18} />
+              <span>Salir</span>
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Contenido por Tab */}
-        {tab === "inicio" ? (
-          <div className="mt-8 grid md:grid-cols-3 gap-6">
-            <div className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow">
-              <h3 className="text-sm font-semibold text-slate-500">Sugerido</h3>
-              <p className="mt-2 text-slate-900 font-medium">
-                Revisa tus órdenes de mantenimiento pendientes.
-              </p>
+        {/* --- NAV TABS --- */}
+        <div className="mb-8 flex justify-center md:justify-start">
+          <div className="inline-flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100">
+            {["inicio", "modulos"].map((t) => (
               <button
-                onClick={() => navigate("/mantenimiento")}
-                className="mt-4 inline-flex items-center gap-2 text-[#007AFF] font-semibold text-sm hover:underline underline-offset-4"
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 capitalize ${
+                  tab === t
+                    ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                }`}
               >
-                Ir a Mantenimiento
+                {t}
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* --- CONTENIDO --- */}
+        {tab === "inicio" ? (
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[minmax(180px,auto)]">
+            {/* Tarjeta Principal (Hero) - Ocupa más espacio */}
+            <div className="md:col-span-8 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-violet-200 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Sparkles size={120} />
+              </div>
+              <div className="relative z-10 h-full flex flex-col justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-medium mb-4">
+                    <Sparkles size={12} /> Novedades v2.0
+                  </div>
+                  <h2 className="text-3xl font-bold mb-2">
+                    Bienvenido de vuelta
+                  </h2>
+                  <p className="text-violet-100 max-w-md">
+                    Tienes 3 órdenes de mantenimiento pendientes y 2 reportes
+                    listos para descargar.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate("/mantenimiento")}
+                  className="w-max mt-6 px-6 py-3 rounded-xl bg-white text-violet-700 font-bold text-sm hover:bg-violet-50 transition-colors flex items-center gap-2 shadow-lg shadow-violet-900/20"
+                >
+                  Ir a Mantenimiento <ArrowUpRight size={16} />
+                </button>
+              </div>
             </div>
 
-            <div className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow">
-              <h3 className="text-sm font-semibold text-slate-500">Atajos</h3>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {visible.map((m) => (
+            {/* Tarjeta Lateral 1 - Sugerido */}
+            <div className="md:col-span-4 bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mb-4">
+                  <Command size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Acciones Rápidas</h3>
+                <p className="text-sm text-slate-500 mt-1">Atajos frecuentes</p>
+              </div>
+              <div className="space-y-2 mt-4">
+                {visible.slice(0, 2).map((m) => (
                   <button
                     key={m.key}
-                    disabled={m.disabled}
-                    onClick={() => !m.disabled && navigate(m.to)}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-2xl ring-1 ring-black/5 bg-slate-50 hover:bg-slate-100 transition ${
-                      m.disabled ? "opacity-60 cursor-not-allowed" : ""
-                    }`}
+                    onClick={() => navigate(m.to)}
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-amber-50 hover:text-amber-700 transition-colors text-sm font-medium text-slate-600 group"
                   >
-                    <m.icon size={16} />
-                    <span className="text-sm font-medium">{m.title}</span>
+                    <span className="flex items-center gap-2">
+                      <m.icon size={16} /> {m.title}
+                    </span>
+                    <ArrowUpRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow">
-              <h3 className="text-sm font-semibold text-slate-500">Novedades</h3>
-              <p className="mt-2 text-slate-900 font-medium">
-                Nueva vista de activos con filtros avanzados.
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Explora y acelera tus búsquedas.
-              </p>
+            {/* Fila Inferior - Grid de 3 */}
+            <div className="md:col-span-4 bg-emerald-50 rounded-[2.5rem] p-8 border border-emerald-100 hover:shadow-lg transition-all cursor-pointer">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-emerald-900">Estado del Sistema</h3>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              </div>
+              <div className="text-3xl font-bold text-emerald-700 mb-1">98%</div>
+              <p className="text-sm text-emerald-600">Operatividad esta semana</p>
+            </div>
+
+            <div className="md:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex items-center justify-between group cursor-pointer hover:border-violet-200 transition-all">
+               <div>
+                  <h3 className="text-lg font-bold text-slate-900">Buscador Global</h3>
+                  <p className="text-sm text-slate-500">Encuentra usuarios, activos o reportes.</p>
+               </div>
+               <div className="w-12 h-12 rounded-full bg-slate-50 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center transition-all">
+                  <Search size={20} />
+               </div>
             </div>
           </div>
         ) : (
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {visible.map((m) => (
-              <BentoCard
-                key={m.key}
-                title={m.title}
-                desc={m.desc}
-                icon={m.icon}
-                disabled={m.disabled}
-                onClick={() => !m.disabled && navigate(m.to)}
-              />
+              <div key={m.key} className="h-64">
+                <BentoCard
+                  title={m.title}
+                  desc={m.desc}
+                  icon={m.icon}
+                  disabled={m.disabled}
+                  onClick={() => !m.disabled && navigate(m.to)}
+                />
+              </div>
             ))}
           </div>
         )}

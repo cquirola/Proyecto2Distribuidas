@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 import {
   getUsers,
@@ -6,16 +5,12 @@ import {
   updateUser,
   deleteUser,
   toggleActive,
-  // resetPassword, // si lo habilitas
 } from "../api/usersApi";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/context/AuthContext";
+import { Link } from "react-router-dom";
 import {
-  Command,
   UserPlus,
   Users,
   Mail,
-  Shield,
   Search,
   Pencil,
   Trash2,
@@ -24,208 +19,130 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  Filter,
+  ShieldCheck,
+  ArrowLeft
 } from "lucide-react";
 
-import BackToHomeButton from "../../dumbComponents/backToHomeButton";
+// --- UTILIDADES ---
 
-// Debounce simple para búsquedas
-const useDebounce = (value, delay = 400) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
+const getInitials = (name = "") => {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || "";
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] : "";
+  return (first + last).toUpperCase();
 };
 
-// Formulario de Crear/Editar Usuario (modal simple)
-const UserForm = ({
-  open,
-  onClose,
-  onSubmit,
-  initialValues,
-  loading,
-}) => {
-  const [form, setForm] = useState(
-    initialValues || {
-      NombreUsuario: "",
-      Contrasena: "",
-      NombreCompleto: "",
-      Correo: "",
-      Rol: "user",
-      Activo: true,
-    }
-  );
+const BackToHomeButton = ({ to = "/dashboard", className = "" }) => (
+  <Link
+    to={to}
+    className={`group inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-200 active:scale-95 border ${className ? className : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 shadow-sm"}`}
+  >
+    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+    <span>Regresar</span>
+  </Link>
+);
+
+// --- MODAL (UserForm - Adaptado a camelCase) ---
+const UserForm = ({ open, onClose, onSubmit, initialValues, loading }) => {
+  // Estado inicial en camelCase para coincidir con el backend
+  const [form, setForm] = useState({
+    nombreUsuario: "", 
+    contrasena: "", 
+    nombreCompleto: "", 
+    correo: "", 
+    rol: "user", 
+    activo: true
+  });
   const [showPwd, setShowPwd] = useState(false);
 
   useEffect(() => {
     if (initialValues) {
       setForm({
-        NombreUsuario: initialValues.NombreUsuario || "",
-        Contrasena: "", // por seguridad no rellenamos
-        NombreCompleto: initialValues.NombreCompleto || "",
-        Correo: initialValues.Correo || "",
-        Rol: initialValues.Rol?.toLowerCase?.() || "user",
-        Activo: !!initialValues.Activo,
+        // Usamos ?. para evitar errores si viene null
+        nombreUsuario: initialValues.nombreUsuario || "",
+        contrasena: "", // La contraseña no se rellena al editar
+        nombreCompleto: initialValues.nombreCompleto || "",
+        correo: initialValues.correo || "",
+        rol: initialValues.rol?.toLowerCase?.() || "user",
+        activo: !!initialValues.activo,
       });
     } else {
-      setForm({
-        NombreUsuario: "",
-        Contrasena: "",
-        NombreCompleto: "",
-        Correo: "",
-        Rol: "user",
-        Activo: true,
-      });
+      // Limpiar formulario al crear
+      setForm({ nombreUsuario: "", contrasena: "", nombreCompleto: "", correo: "", rol: "user", activo: true });
     }
   }, [initialValues, open]);
 
   if (!open) return null;
-
   const isEdit = !!initialValues?.idUsuario;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const submit = (e) => {
     e.preventDefault();
-    // Validación mínima
-    if (!form.NombreUsuario?.trim()) return alert("Nombre de usuario es requerido");
-    if (!isEdit && !form.Contrasena?.trim()) return alert("Contraseña es requerida");
-    if (!form.NombreCompleto?.trim()) return alert("Nombre completo es requerido");
-    if (!form.Correo?.trim()) return alert("Correo es requerido");
+    if (!form.nombreUsuario?.trim()) return;
     onSubmit(form);
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-xl bg-white rounded-3xl ring-1 ring-black/5 shadow-xl overflow-hidden">
-        <div className="p-6 sm:p-8 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 ring-1 ring-purple-200 flex items-center justify-center">
-              <UserPlus size={18} />
-            </div>
-            <h3 className="text-lg font-bold tracking-tight">
-              {isEdit ? "Editar usuario" : "Nuevo usuario"}
-            </h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 transition-all">
+      <div className="w-full max-w-lg bg-white rounded-[2rem] shadow-2xl ring-1 ring-black/5 overflow-hidden transform transition-all scale-100">
+        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 className="text-xl font-bold text-slate-900">{isEdit ? "Editar Perfil" : "Nuevo Miembro"}</h3>
+            <p className="text-sm text-slate-500 mt-0.5">{isEdit ? "Actualiza los datos." : "Ingresa la información."}</p>
           </div>
-          <p className="mt-1 text-sm text-slate-500">
-            Completa los campos para {isEdit ? "actualizar" : "crear"} el usuario.
-          </p>
+          <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center">
+             {isEdit ? <Pencil size={20} /> : <UserPlus size={20} />}
+          </div>
         </div>
-
-        <form onSubmit={submit} className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div>
-            <label className="text-sm font-medium text-slate-700">Nombre de usuario</label>
-            <input
-              name="NombreUsuario"
-              value={form.NombreUsuario}
-              onChange={handleChange}
-              className="mt-2 w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-              placeholder="usuario"
-              required
-            />
+        <form onSubmit={submit} className="p-8 grid gap-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase">Usuario</label>
+              <input name="nombreUsuario" value={form.nombreUsuario} onChange={handleChange} className="input-field" placeholder="ej. jdoe" required />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase">Rol</label>
+              <select name="rol" value={form.rol} onChange={handleChange} className="input-field appearance-none">
+                <option value="admin">Administrador</option>
+                <option value="user">Usuario</option>
+                <option value="contador">Contador</option>
+              </select>
+            </div>
           </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-700">Correo</label>
-            <input
-              name="Correo"
-              type="email"
-              value={form.Correo}
-              onChange={handleChange}
-              className="mt-2 w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-              placeholder="usuario@correo.com"
-              required
-            />
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-500 uppercase">Nombre Completo</label>
+            <input name="nombreCompleto" value={form.nombreCompleto} onChange={handleChange} className="input-field" required />
           </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-700">Nombre completo</label>
-            <input
-              name="NombreCompleto"
-              value={form.NombreCompleto}
-              onChange={handleChange}
-              className="mt-2 w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-              placeholder="Nombre y Apellido"
-              required
-            />
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-500 uppercase">Correo</label>
+            <input name="correo" type="email" value={form.correo} onChange={handleChange} className="input-field" required />
           </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-700">Rol</label>
-            <select
-              name="Rol"
-              value={form.Rol}
-              onChange={handleChange}
-              className="mt-2 w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-            >
-              <option value="admin">Admin</option>
-              <option value="user">Usuario</option>
-              <option value="contador">Contador</option>
-            </select>
-          </div>
-
           {!isEdit && (
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium text-slate-700">Contraseña</label>
-              <div className="mt-2 relative">
-                <input
-                  name="Contrasena"
-                  type={showPwd ? "text" : "password"}
-                  value={form.Contrasena}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 pr-11 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-                  placeholder="••••••••"
-                  minLength={6}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-purple-600"
-                  aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
-                >
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase">Contraseña</label>
+              <div className="relative">
+                <input name="contrasena" type={showPwd ? "text" : "password"} value={form.contrasena} onChange={handleChange} className="input-field pr-10" minLength={6} required />
+                <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-purple-600">
                   {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
           )}
-
-          <div className="flex items-center gap-2">
-            <input
-              id="activo"
-              name="Activo"
-              type="checkbox"
-              checked={form.Activo}
-              onChange={handleChange}
-              className="h-4 w-4 accent-purple-600"
-            />
-            <label htmlFor="activo" className="text-sm font-medium text-slate-700">
-              Activo
-            </label>
+          <div className="flex items-center gap-3 pt-2">
+            <input id="activo" name="activo" type="checkbox" checked={form.activo} onChange={handleChange} className="h-5 w-5 accent-purple-600 cursor-pointer" />
+            <label htmlFor="activo" className="text-sm font-medium text-slate-700 cursor-pointer">Usuario Activo</label>
           </div>
-
-          <div className="md:col-span-2 flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-2 rounded-2xl bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60"
-            >
-              {loading ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear usuario"}
-            </button>
+          <div className="flex gap-3 pt-4 border-t border-slate-50">
+             <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition">Cancelar</button>
+             <button type="submit" disabled={loading} className="flex-1 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition shadow-lg shadow-purple-200 disabled:opacity-70">
+               {loading ? <RefreshCw className="animate-spin mx-auto" /> : isEdit ? "Guardar" : "Crear"}
+             </button>
           </div>
         </form>
       </div>
@@ -233,393 +150,279 @@ const UserForm = ({
   );
 };
 
-const UsuariosPage = () => {
-  const navigate = useNavigate();
-  const { role } = useAuth(); // protegido por rutas, pero útil si quieres condicionar UI
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
+// --- PÁGINA PRINCIPAL ---
 
-  // Filtros y estado UI
+const UsuariosPage = () => {
+  const [allItems, setAllItems] = useState([]);
+  
+  // Filtros locales
   const [usernameQ, setUsernameQ] = useState("");
   const [emailQ, setEmailQ] = useState("");
   const [roleQ, setRoleQ] = useState("all");
-  const [statusQ, setStatusQ] = useState("all"); // all | active | inactive
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(10);
+  const [statusQ, setStatusQ] = useState("all");
+
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-
-  // Modal
+  
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  // Debounced queries
-  const qUser = useDebounce(usernameQ, 350);
-  const qMail = useDebounce(emailQ, 350);
-
-  const purple = {
-    primary: "#6D28D9",
-    primaryHover: "#5B21B6",
-  };
-
-  const fetchList = async (opts = {}) => {
+  const fetchList = async () => {
     setLoading(true);
     setError("");
     try {
-      const params = {
-        page,
-        size,
-        username: qUser || undefined,
-        email: qMail || undefined,
-        role: roleQ !== "all" ? roleQ : undefined,
-        activo:
-          statusQ === "all" ? undefined : statusQ === "active" ? true : false,
-        ...opts,
-      };
-      const data = await getUsers(params);
-      setItems(Array.isArray(data.data) ? data.data : []);
-      setTotal(Number(data.total || 0));
+      const data = await getUsers();
+      // Aseguramos que sea un array. Tu backend devuelve el array directo según el JSON.
+      const lista = Array.isArray(data) ? data : (data.data || []);
+      setAllItems(lista);
     } catch (e) {
       console.error(e);
-      setError("No se pudo cargar la lista de usuarios.");
+      setError("No se pudieron cargar los usuarios.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qUser, qMail, roleQ, statusQ, page, size]);
+  useEffect(() => { fetchList(); }, []);
 
-  const resetFilters = () => {
-    setUsernameQ("");
-    setEmailQ("");
-    setRoleQ("all");
-    setStatusQ("all");
-    setPage(1);
-  };
+  // FILTRADO (Actualizado a camelCase)
+  const filteredItems = useMemo(() => {
+    return allItems.filter((item) => {
+      // Filtro Usuario: item.nombreUsuario
+      if (usernameQ && !item.nombreUsuario?.toLowerCase().includes(usernameQ.toLowerCase())) return false;
+      // Filtro Correo: item.correo
+      if (emailQ && !item.correo?.toLowerCase().includes(emailQ.toLowerCase())) return false;
+      // Filtro Rol: item.rol
+      if (roleQ !== "all" && item.rol?.toLowerCase() !== roleQ) return false;
+      // Filtro Estado: item.activo
+      if (statusQ !== "all") {
+        const isActive = statusQ === "active";
+        if (item.activo !== isActive) return false;
+      }
+      return true;
+    });
+  }, [allItems, usernameQ, emailQ, roleQ, statusQ]);
 
-  const onCreate = () => {
-    setEditing(null);
-    setOpenForm(true);
-  };
-
-  const onEdit = (row) => {
-    setEditing(row);
-    setOpenForm(true);
-  };
-
+  const resetFilters = () => { setUsernameQ(""); setEmailQ(""); setRoleQ("all"); setStatusQ("all"); };
+  const onCreate = () => { setEditing(null); setOpenForm(true); };
+  const onEdit = (row) => { setEditing(row); setOpenForm(true); };
+  
   const onDelete = async (row) => {
-    const ok = confirm(`¿Eliminar al usuario "${row.NombreUsuario}"?`);
-    if (!ok) return;
+    // Usamos row.nombreUsuario
+    if (!confirm(`¿Eliminar a ${row.nombreUsuario}?`)) return;
     setDeletingId(row.idUsuario);
-    try {
-      await deleteUser(row.idUsuario);
-      await fetchList();
-    } catch (e) {
-      alert("No se pudo eliminar. Intenta nuevamente.");
-    } finally {
-      setDeletingId(null);
-    }
+    try { await deleteUser(row.idUsuario); await fetchList(); } 
+    catch (e) { alert("Error al eliminar."); } finally { setDeletingId(null); }
   };
-
+  
   const onToggleActive = async (row) => {
-    try {
-      await toggleActive(row.idUsuario, !row.Activo);
-      await fetchList();
-    } catch (e) {
-      alert("No se pudo cambiar el estado. Intenta nuevamente.");
-    }
+    // Usamos row.activo
+    try { await toggleActive(row.idUsuario, !row.activo); await fetchList(); } 
+    catch (e) { alert("Error al cambiar estado."); }
   };
 
   const handleSubmitForm = async (form) => {
     setSaving(true);
     try {
+      // 1. Preparamos el objeto EXACTAMENTE como lo pide el Swagger
+      const payload = {
+        // En creación (POST), el ID suele enviarse como 0
+        idUsuario: editing?.idUsuario || 0,
+        
+        nombreUsuario: form.nombreUsuario,
+        nombreCompleto: form.nombreCompleto,
+        correo: form.correo,
+        rol: form.rol || "user", // Aseguramos que no vaya nulo
+        activo: typeof form.activo === 'boolean' ? form.activo : true,
+        
+        // El Swagger muestra fechaCreacion. La enviamos actual o nula según prefieras.
+        // Al enviarla como ISOString cumplimos con el formato "2026-01-21T..."
+        fechaCreacion: editing?.fechaCreacion || new Date().toISOString(),
+      };
+
+      // 2. Lógica condicional (Crear vs Editar)
       if (editing?.idUsuario) {
-        // Si Contrasena viene vacía, no la enviamos
-        const payload = { ...form };
-        if (!payload.Contrasena) delete payload.Contrasena;
+        // En EDICIÓN:
+        // Si el usuario no escribió contraseña nueva, no la enviamos (o enviamos null)
+        // para que el backend sepa que no debe cambiarla.
+        if (form.contrasena) {
+           payload.contrasena = form.contrasena;
+        } else {
+           // Ojo: Si tu backend requiere el campo obligatorio, tendrás que enviar la actual
+           // o manejarlo en el backend. Por ahora la omitimos del JSON si es vacía.
+           payload.contrasena = editing.contrasena; 
+        }
+
         await updateUser(editing.idUsuario, payload);
       } else {
-        await createUser(form);
+        // En CREACIÓN:
+        // La contraseña es obligatoria.
+        payload.contrasena = form.contrasena;
+        await createUser(payload);
       }
+
       setOpenForm(false);
       setEditing(null);
-      await fetchList({ page: 1 }); // volver a primera página por UX
-      setPage(1);
+      await fetchList();
+      
     } catch (e) {
-      alert("No se pudo guardar. Revisa los datos e intenta nuevamente.");
+      console.error(e);
+      // Muestra un error más descriptivo si el backend lo devuelve
+      const msg = e.response?.data?.Error || "Error al guardar. Revisa los datos.";
+      alert(msg);
     } finally {
       setSaving(false);
     }
   };
-
+  // Stats (Actualizado a camelCase)
   const summary = useMemo(() => {
-    const activos = items.filter((i) => !!i.Activo).length;
-    const inactivos = items.length - activos;
-    return { activos, inactivos };
-  }, [items]);
+    const activos = allItems.filter((i) => !!i.activo).length;
+    return { activos, inactivos: allItems.length - activos };
+  }, [allItems]);
+
+  const cardBase = "bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300";
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7] p-4 sm:p-6 md:p-10 text-slate-900">
-      <div className="mx-auto max-w-7xl">
-        {/* Header / Título */}
-        <div className="rounded-[2rem] bg-white p-6 sm:p-8 ring-1 ring-black/5 shadow">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-700 ring-1 ring-purple-200 flex items-center justify-center">
-                <Users size={26} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">Gestión de Usuarios</h1>
-                <p className="text-slate-500 mt-1">
-                  Crea, edita y administra los usuarios del sistema.
-                </p>
-              </div>
-            </div>
-
-            {/* Acciones a la derecha */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => {
-                  setRefreshing(true);
-                  fetchList().finally(() => setRefreshing(false));
-                }}
-                className="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 bg-white ring-1 ring-black/5 shadow hover:shadow-md text-slate-700 hover:text-slate-900 transition-all"
-                title="Refrescar"
-              >
-                <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
-                <span className="text-sm font-semibold">Refrescar</span>
-              </button>
-
-              {/* Botón de regresar a inicio */}
-              <BackToHomeButton
-                to="/dashboard" // cambia a "/dashoboard" si esa es tu ruta real
-                className="!bg-purple-600 hover:!bg-purple-700 !text-white"
-              />
-            </div>
+    <div className="min-h-screen bg-[#F8F9FC] p-4 sm:p-6 md:p-8 font-sans text-slate-900">
+      <div className="mx-auto max-w-[1400px] space-y-6">
+        
+        {/* HEADER & STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className={`${cardBase} md:col-span-6 flex flex-col justify-between relative overflow-hidden`}>
+             <div className="relative z-10">
+                <div className="flex justify-between items-start">
+                   <BackToHomeButton />
+                   <div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><Users size={24} /></div>
+                </div>
+                <div className="mt-6">
+                   <h1 className="text-3xl font-bold tracking-tight text-slate-900">Usuarios</h1>
+                   <p className="text-slate-500 mt-2 text-sm max-w-sm">Gestiona el acceso, roles y permisos.</p>
+                </div>
+             </div>
+             <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-purple-50 rounded-full opacity-50 blur-3xl pointer-events-none"></div>
           </div>
 
-          {/* Bento actions */}
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-3xl p-5 bg-purple-50 ring-1 ring-purple-100 text-purple-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/80 flex items-center justify-center ring-1 ring-purple-100">
-                  <Users size={18} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-purple-700">TOTAL</p>
-                  <p className="text-xl font-bold">{total}</p>
-                </div>
-              </div>
-            </div>
+          <div className={`${cardBase} md:col-span-3 flex flex-col justify-center space-y-4`}>
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center"><CheckCircle2 size={20} /></div>
+                <div><p className="text-xs font-bold text-slate-400 uppercase">Activos</p><p className="text-2xl font-bold text-slate-900">{summary.activos}</p></div>
+             </div>
+             <div className="h-px bg-slate-100 w-full"></div>
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center"><XCircle size={20} /></div>
+                <div><p className="text-xs font-bold text-slate-400 uppercase">Inactivos</p><p className="text-2xl font-bold text-slate-900">{summary.inactivos}</p></div>
+             </div>
+          </div>
 
-            <div className="rounded-3xl p-5 bg-green-50 ring-1 ring-green-100 text-green-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/80 flex items-center justify-center ring-1 ring-green-100">
-                  <CheckCircle2 size={18} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-green-700">ACTIVOS</p>
-                  <p className="text-xl font-bold">{summary.activos}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl p-5 bg-rose-50 ring-1 ring-rose-100 text-rose-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/80 flex items-center justify-center ring-1 ring-rose-100">
-                  <XCircle size={18} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-rose-700">INACTIVOS</p>
-                  <p className="text-xl font-bold">{summary.inactivos}</p>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={onCreate}
-              className="rounded-3xl p-5 bg-white ring-1 ring-black/5 shadow hover:shadow-md text-slate-800 text-left transition"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center ring-1 ring-purple-200">
-                  <UserPlus size={18} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500">ACCIÓN</p>
-                  <p className="text-lg font-bold">Crear usuario</p>
-                </div>
-              </div>
-            </button>
+          <div className={`${cardBase} md:col-span-3 bg-purple-600 text-white border-transparent hover:bg-purple-700 flex flex-col items-center justify-center text-center cursor-pointer group`} onClick={onCreate}>
+              <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"><UserPlus size={28} /></div>
+              <h3 className="text-lg font-bold">Nuevo Usuario</h3>
           </div>
         </div>
 
-        {/* Filtros */}
-        <div className="mt-6 rounded-3xl bg-white p-5 ring-1 ring-black/5 shadow">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700">Usuario</label>
-              <div className="mt-2 relative">
-                <input
-                  value={usernameQ}
-                  onChange={(e) => setUsernameQ(e.target.value)}
-                  className="w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 pl-10 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-                  placeholder="Buscar por usuario"
-                />
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        {/* FILTROS (Inputs corregidos con padding-left) */}
+        <div className={`${cardBase} py-4 px-6 flex flex-col lg:flex-row items-center gap-4`}>
+           <div className="flex items-center gap-2 text-slate-400 lg:pr-4 lg:border-r border-slate-100 w-full lg:w-auto">
+              <Filter size={18} /> <span className="text-sm font-medium">Filtros</span>
+           </div>
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+              <div className="relative group">
+                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
+                 <input value={usernameQ} onChange={(e) => setUsernameQ(e.target.value)} placeholder="Buscar usuario..." className="filter-input" />
               </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-slate-700">Correo</label>
-              <div className="mt-2 relative">
-                <input
-                  value={emailQ}
-                  onChange={(e) => setEmailQ(e.target.value)}
-                  className="w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 pl-10 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-                  placeholder="Buscar por correo"
-                />
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <div className="relative group">
+                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
+                 <input value={emailQ} onChange={(e) => setEmailQ(e.target.value)} placeholder="Buscar correo..." className="filter-input" />
               </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-slate-700">Rol</label>
-              <select
-                value={roleQ}
-                onChange={(e) => {
-                  setRoleQ(e.target.value);
-                  setPage(1);
-                }}
-                className="mt-2 w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-              >
-                <option value="all">Todos</option>
-                <option value="admin">Admin</option>
-                <option value="user">Usuario</option>
-                <option value="contador">Contador</option>
+              <select value={roleQ} onChange={(e) => setRoleQ(e.target.value)} className="filter-input">
+                 <option value="all">Todos los Roles</option>
+                 <option value="admin">Administrador</option>
+                 <option value="user">Usuario</option>
+                 <option value="contador">Contador</option>
               </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-slate-700">Estado</label>
-              <select
-                value={statusQ}
-                onChange={(e) => {
-                  setStatusQ(e.target.value);
-                  setPage(1);
-                }}
-                className="mt-2 w-full rounded-2xl bg-slate-100 border-0 px-4 py-3 focus:ring-2 focus:ring-purple-500/50 focus:bg-white"
-              >
-                <option value="all">Todos</option>
-                <option value="active">Activos</option>
-                <option value="inactive">Inactivos</option>
+              <select value={statusQ} onChange={(e) => setStatusQ(e.target.value)} className="filter-input">
+                 <option value="all">Todos los Estados</option>
+                 <option value="active">Activos</option>
+                 <option value="inactive">Inactivos</option>
               </select>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              onClick={resetFilters}
-              className="px-4 py-2 rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200"
-            >
-              Limpiar filtros
-            </button>
-          </div>
+           </div>
+           {(usernameQ || emailQ || roleQ !== 'all' || statusQ !== 'all') && (
+              <button onClick={resetFilters} className="text-sm font-semibold text-rose-500 hover:text-rose-700 whitespace-nowrap px-2">Limpiar</button>
+           )}
+           <button onClick={() => { setRefreshing(true); fetchList().finally(() => setRefreshing(false)); }} className="p-2 text-slate-400 hover:text-purple-600 transition-colors ml-auto lg:ml-0" title="Refrescar">
+              <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+           </button>
         </div>
 
-        {/* Tabla */}
-        <div className="mt-6 rounded-3xl bg-white ring-1 ring-black/5 shadow overflow-hidden">
-          {error && (
-            <div className="p-4 bg-rose-50 text-rose-700 text-sm">{error}</div>
-          )}
+        {/* TABLA DE RESULTADOS (Mapeo corregido) */}
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+          {error && <div className="p-4 bg-rose-50 text-rose-600 text-sm font-medium text-center">{error}</div>}
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="text-left px-5 py-3">ID</th>
-                  <th className="text-left px-5 py-3">Usuario</th>
-                  <th className="text-left px-5 py-3">Nombre</th>
-                  <th className="text-left px-5 py-3">Correo</th>
-                  <th className="text-left px-5 py-3">Rol</th>
-                  <th className="text-left px-5 py-3">Estado</th>
-                  <th className="text-right px-5 py-3">Acciones</th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                  <th className="px-6 py-5">Usuario / ID</th>
+                  <th className="px-6 py-5">Rol</th>
+                  <th className="px-6 py-5">Estado</th>
+                  <th className="px-6 py-5">Contacto</th>
+                  <th className="px-6 py-5 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-50 text-sm">
                 {loading ? (
-                  <tr>
-                    <td colSpan={7} className="px-5 py-10 text-center text-slate-500">
-                      Cargando...
-                    </td>
-                  </tr>
-                ) : items.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-5 py-10">
-                      <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
-                        <p>No hay resultados</p>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={resetFilters}
-                            className="px-4 py-2 rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200"
-                          >
-                            Limpiar filtros
-                          </button>
-                          <BackToHomeButton to="/dashboard" />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
+                   <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-400">Cargando datos...</td></tr>
+                ) : filteredItems.length === 0 ? (
+                   <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-400">No se encontraron usuarios.</td></tr>
                 ) : (
-                  items.map((row) => (
-                    <tr key={row.idUsuario} className="border-t border-slate-100">
-                      <td className="px-5 py-3">{row.idUsuario}</td>
-                      <td className="px-5 py-3">{row.NombreUsuario}</td>
-                      <td className="px-5 py-3">{row.NombreCompleto}</td>
-                      <td className="px-5 py-3">{row.Correo}</td>
-                      <td className="px-5 py-3 capitalize">{row.Rol}</td>
-                      <td className="px-5 py-3">
-                        {row.Activo ? (
-                          <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 ring-1 ring-green-100 px-2.5 py-1 rounded-full">
-                            <CheckCircle2 size={14} /> Activo
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 ring-1 ring-rose-100 px-2.5 py-1 rounded-full">
-                            <XCircle size={14} /> Inactivo
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => onEdit(row)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200"
-                            title="Editar"
-                          >
-                            <Pencil size={16} />
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => onToggleActive(row)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-2xl bg-white ring-1 ring-black/5 hover:shadow"
-                            title={row.Activo ? "Desactivar" : "Activar"}
-                          >
-                            {row.Activo ? "Desactivar" : "Activar"}
-                          </button>
-                          <button
-                            onClick={() => onDelete(row)}
-                            disabled={deletingId === row.idUsuario}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-2xl bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={16} />
-                            Eliminar
-                          </button>
+                  filteredItems.map((row) => (
+                    <tr key={row.idUsuario} className="group hover:bg-slate-50/80 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center text-xs ring-2 ring-white shadow-sm">
+                            {/* Usamos nombreCompleto o nombreUsuario */}
+                            {getInitials(row.nombreCompleto || row.nombreUsuario)}
+                          </div>
+                          <div>
+                            {/* camelCase aquí */}
+                            <p className="font-semibold text-slate-900">{row.nombreUsuario}</p>
+                            <p className="text-xs text-slate-400 font-mono">ID: {row.idUsuario}</p>
+                          </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                            row.rol?.toLowerCase() === 'admin' ? 'bg-blue-50 text-blue-700 border-blue-100' : 
+                            row.rol?.toLowerCase() === 'contador' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                            'bg-slate-50 text-slate-600 border-slate-200'
+                         }`}>
+                            {row.rol === 'admin' && <ShieldCheck size={10} className="mr-1" />}
+                            {row.rol || 'user'}
+                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                         <button onClick={() => onToggleActive(row)} className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
+                            row.activo 
+                            ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" 
+                            : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                         }`}>
+                            <span className={`w-2 h-2 rounded-full ${row.activo ? 'bg-green-500' : 'bg-rose-500'}`}></span>
+                            {row.activo ? "Activo" : "Inactivo"}
+                         </button>
+                      </td>
+                      <td className="px-6 py-4">
+                         <div className="flex flex-col">
+                            <span className="text-slate-900 font-medium">{row.nombreCompleto}</span>
+                            <span className="text-slate-500 text-xs">{row.correo}</span>
+                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => onEdit(row)} className="p-2 rounded-xl text-slate-500 hover:bg-white hover:text-purple-600 hover:shadow-sm ring-1 ring-transparent hover:ring-slate-200 transition-all" title="Editar"><Pencil size={16} /></button>
+                            <button onClick={() => onDelete(row)} disabled={deletingId === row.idUsuario} className="p-2 rounded-xl text-slate-500 hover:bg-white hover:text-rose-600 hover:shadow-sm ring-1 ring-transparent hover:ring-slate-200 transition-all" title="Eliminar"><Trash2 size={16} /></button>
+                         </div>
                       </td>
                     </tr>
                   ))
@@ -627,62 +430,49 @@ const UsuariosPage = () => {
               </tbody>
             </table>
           </div>
-
-          {/* Paginación */}
-          <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100">
-            <div className="text-xs text-slate-500">
-              Mostrando {(items.length && (page - 1) * size + 1) || 0}–
-              {(page - 1) * size + items.length} de {total}
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={size}
-                onChange={(e) => {
-                  setSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="rounded-xl bg-slate-100 border-0 px-2 py-1 text-sm"
-              >
-                {[10, 20, 50].map((n) => (
-                  <option key={n} value={n}>
-                    {n} / pág
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 disabled:opacity-50"
-              >
-                Anterior
-              </button>
-              <span className="text-sm font-medium">Pág. {page}</span>
-              <button
-                onClick={() => setPage((p) => (p * size < total ? p + 1 : p))}
-                disabled={page * size >= total}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 disabled:opacity-50"
-              >
-                Siguiente
-              </button>
-            </div>
+          <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end">
+             <span className="text-xs text-slate-500 font-medium">
+                Total Registros: {filteredItems.length} (de {allItems.length})
+             </span>
           </div>
         </div>
       </div>
-
-      {/* Modal Crear/Editar */}
-      <UserForm
-        open={openForm}
-        onClose={() => {
-          setOpenForm(false);
-          setEditing(null);
-        }}
-        onSubmit={handleSubmitForm}
-        initialValues={editing}
-        loading={saving}
-      />
+      <UserForm open={openForm} onClose={() => { setOpenForm(false); setEditing(null); }} onSubmit={handleSubmitForm} initialValues={editing} loading={saving} />
+      
+      {/* Estilos corregidos: Padding aumentado en .filter-input para que el icono no se monte */}
+      <style>{`
+        .input-field { 
+          width: 100%; 
+          border-radius: 0.75rem; 
+          background-color: #F1F5F9; 
+          border: 1px solid transparent; 
+          padding: 0.75rem 1rem; 
+          font-size: 0.875rem; 
+          transition: all 0.2s; 
+        } 
+        .input-field:focus { 
+          background-color: white; 
+          border-color: #9333EA; 
+          outline: none; 
+          box-shadow: 0 0 0 4px rgba(147, 51, 234, 0.1); 
+        } 
+        .filter-input { 
+          width: 100%; 
+          border-radius: 0.75rem; 
+          background-color: #F8F9FC; 
+          border: 1px solid #E2E8F0; 
+          padding: 0.6rem 1rem 0.6rem 2.5rem; /* Padding izquierdo de 2.5rem para el icono */
+          font-size: 0.875rem; 
+          color: #334155; 
+          transition: all 0.2s; 
+        } 
+        .filter-input:focus { 
+          background-color: white; 
+          border-color: #9333EA; 
+          outline: none; 
+        }
+      `}</style>
     </div>
   );
 };
-
 export default UsuariosPage;
-
