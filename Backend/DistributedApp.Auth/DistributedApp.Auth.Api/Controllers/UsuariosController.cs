@@ -2,6 +2,7 @@
 using DistributedApp.Auth.Application.Interface;
 using DistributedApp.Auth.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 
 namespace DistributedApp.Auth.Api.Controllers
 {
@@ -9,71 +10,136 @@ namespace DistributedApp.Auth.Api.Controllers
     [Route("api/[controller]")]
     public class UsuariosController : ControllerBase
     {
-        private readonly IUsuarioRepository _usuarioRepository;
+        // Inyectamos EL SERVICIO (Lógica de Negocio), no el repositorio
+        private readonly IUsuarioService _usuarioService;
 
-        public UsuariosController(IUsuarioRepository usuarioRepository)
+        public UsuariosController(IUsuarioService usuarioService)
         {
-            _usuarioRepository = usuarioRepository;
-        }
-
-        // GET: api/usuarios
-        // Obtiene todos los usuarios activos
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var usuarios = await _usuarioRepository.GetAllAsync();
-            return Ok(usuarios);
+            _usuarioService = usuarioService;
         }
 
         // POST: api/usuarios/login
-        // Valida credenciales (Paso previo a generar el Token OAuth)
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            // 1. Buscar usuario por nombre
-            var usuario = await _usuarioRepository.GetByUsernameAsync(request.Username);
+            var respuesta = await _usuarioService.AuthenticateAsync(request);
+
+            if (respuesta == null)
+            {
+                return Unauthorized(new { Message = "Usuario o contraseña incorrectos" });
+            }
+
+            // Retorna el JSON con: UsuarioId, Nombre, Rol y TOKEN
+            return Ok(respuesta);
+        }
+
+        // GET: api/usuarios
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var usuarios = await _usuarioService.GetAllAsync();
+            return Ok(usuarios);
+        }
+
+        // GET: api/usuarios/{id}
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var usuario = await _usuarioService.GetByIdAsync(id);
 
             if (usuario == null)
             {
-                return Unauthorized(new { Message = "Usuario no encontrado" });
+                return NotFound(new { Message = "Usuario no encontrado" });
             }
 
-            // 2. Validar contraseña (Texto plano según requerimiento actual)
-            if (usuario.Contrasena != request.Password)
-            {
-                return Unauthorized(new { Message = "Contraseña incorrecta" });
-            }
-
-            // 3. Si todo está bien, retornamos el usuario (sin la contraseña por seguridad)
-            // NOTA: Aquí es donde más adelante generaremos el JWT Token.
-            return Ok(new
-            {
-                Message = "Login Exitoso",
-                UsuarioId = usuario.IdUsuario,
-                Nombre = usuario.NombreCompleto,
-                Rol = usuario.Rol
-            });
+            return Ok(usuario);
         }
 
         // POST: api/usuarios
-        // Crea un nuevo usuario (Para probar el Insert con Dapper)
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Usuario usuario)
         {
             try
             {
-                // Forzamos valores por defecto si vienen nulos
-                if (string.IsNullOrEmpty(usuario.Rol)) usuario.Rol = "USER";
-                usuario.Activo = true;
-
-                var nuevoId = await _usuarioRepository.CreateAsync(usuario);
-
-                return CreatedAtAction(nameof(GetAll), new { id = nuevoId }, new { Id = nuevoId, Message = "Usuario Creado" });
+                var nuevoUsuario = await _usuarioService.CreateAsync(usuario);
+                // Retorna 201 Created y la ubicación del nuevo recurso
+                return CreatedAtAction(nameof(GetById), new { id = nuevoUsuario.IdUsuario }, new { Message = "Usuario Creado", Id = nuevoUsuario.IdUsuario });
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return BadRequest(new { Error = ex.Message });
             }
         }
-    }
+
+        // PUT: api/usuarios/{id}
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] Usuario usuario)
+        {
+            try
+            {
+                var result = await _usuarioService.UpdateAsync(id, usuario);
+
+                if (!result)
+                {
+                    return NotFound(new { Message = "Usuario no encontrado o IDs no coinciden" });
+                }
+
+                return Ok(new { Message = "Usuario actualizado correctamente" });
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+        // DELETE: api/usuarios/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var result = await _usuarioService.DeleteAsync(id);
+
+            if (!result)
+            {
+                return NotFound(new { Message = "Usuario no encontrado" });
+            }
+
+            return Ok(new { Message = "Usuario eliminado correctamente" });
+        }
+
+        // PATCH: api/usuarios/{id}/estado
+        [HttpPatch("{id}/estado")]
+        public async Task<IActionResult> ToggleStatus(int id, [FromBody] EstadoRequest request)
+        {
+            var result = await _usuarioService.UpdateStatusAsync(id, request.Activo);
+
+            if (!result)
+            {
+                return NotFound(new { Message = "Usuario no encontrado" });
+            }
+
+            return Ok(new { Message = "Estado actualizado correctamente", NuevoEstado = request.Activo });
+        }
+
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            // 1. Validación Básica: ¿Me enviaron algo?
+            if (request == null || string.IsNullOrEmpty(request.Credential))
+            {
+                return BadRequest(new { Message = "El token de Google es obligatorio." });
+            }
+
+            // 2. Llamada al Servicio (Aquí ocurre la validación criptográfica y lógica de negocio)
+            var respuesta = await _usuarioService.AuthenticateGoogleAsync(request.Credential);
+
+            // 3. Respuesta
+            if (respuesta == null)
+            {
+                // Si es null, significa que el token era falso, expiró, o el usuario está inactivo.
+                return Unauthorized(new { Message = "Autenticación fallida. Token inválido o usuario bloqueado." });
+            }
+
+            return Ok(respuesta);
+        }
+    }    
 }
