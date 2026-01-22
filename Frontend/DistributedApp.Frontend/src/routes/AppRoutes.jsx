@@ -14,8 +14,8 @@ const AppRoutes = () => {
       {/* Cualquier ruta desconocida te manda al Login */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
-  </AuthProvider>
-);
+  );
+};
 
 
 export default AppRoutes;
