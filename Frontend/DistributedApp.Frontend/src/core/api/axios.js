@@ -8,4 +8,12 @@ const apiAuth = axios.create({
   },
 });
 
-export { apiAuth };
+// API del módulo de Activos
+const apiAssets = axios.create({
+  baseURL: 'https://localhost:7174/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export { apiAuth, apiAssets };

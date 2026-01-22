@@ -1,17 +1,28 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "../features/auth/pages/LoginPage";
+import TipoActivosPage from "../features/assets/pages/TipoActivosPage";
+import ActivosPage from "../features/assets/pages/ActivosPage";
 
 const AppRoutes = () => {
+  const hasUser = !!localStorage.getItem("user");
+
   return (
     <Routes>
-      {/* Ruta por defecto: Redirigir al Login */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      
-      {/* Ruta del Login */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Cualquier ruta desconocida te manda al Login */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route
+        path="/"
+        element={<Navigate to={hasUser ? "/assets/tipos" : "/login"} replace />}
+      />
+
+      {/* RUTAS DE ACTIVOS */}
+      <Route path="/assets/tipos" element={<TipoActivosPage />} />
+      <Route path="/assets/activos" element={<ActivosPage />} />
+
+      <Route
+        path="*"
+        element={<Navigate to={hasUser ? "/assets/tipos" : "/login"} replace />}
+      />
     </Routes>
   );
 };
